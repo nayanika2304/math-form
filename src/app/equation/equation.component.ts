@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
-import {FormGroup, FormControl} from '@angular/forms';
-import {MathValidators} from '../math-validators';
+import { FormGroup, FormControl } from '@angular/forms';
+import { delay, filter, scan } from 'rxjs/operators';
+import { MathValidators } from '../math-validators';
 
 @Component({
   selector: 'app-equation',
@@ -8,33 +9,54 @@ import {MathValidators} from '../math-validators';
   styleUrls: ['./equation.component.css']
 })
 export class EquationComponent implements OnInit {
-  mathForm = new FormGroup({
-    a : new FormControl(this.randomNumber()),
-    b : new FormControl(this.randomNumber()),
-    answer : new FormControl('')
-  }, [
-    // provide a reference to that function
-    MathValidators.addition('answer', 'a', 'b')
-  ]);
+  secondsPerSolution = 0;
+  mathForm = new FormGroup(
+    {
+      a: new FormControl(this.randomNumber()),
+      b: new FormControl(this.randomNumber()),
+      answer: new FormControl('')
+    },
+    [MathValidators.addition('answer', 'a', 'b')]
+  );
 
-  constructor() { }
+  constructor() {}
 
-  // tslint:disable-next-line:typedef
-  get a(){
+  get a() {
     return this.mathForm.value.a;
   }
-  // tslint:disable-next-line:typedef
-  get b(){
+
+  get b() {
     return this.mathForm.value.b;
   }
-  ngOnInit(): void {
-    this.mathForm.statusChanges.subscribe((value) => {
 
-    });
+  ngOnInit() {
+    this.mathForm.statusChanges
+      .pipe(
+        filter(value => value === 'VALID'),
+        delay(100),
+        scan(
+          acc => {
+            return {
+              numberSolved: acc.numberSolved + 1,
+              startTime: acc.startTime
+            };
+          },
+          { numberSolved: 0, startTime: new Date() }
+        )
+      )
+      .subscribe(({ numberSolved, startTime }) => {
+        this.secondsPerSolution =
+          (new Date().getTime() - startTime.getTime()) / numberSolved / 1000;
+
+        this.mathForm.setValue({
+          a: this.randomNumber(),
+          b: this.randomNumber(),
+          answer: ''
+        });
+      });
   }
 
-  // tslint:disable-next-line:typedef
-  randomNumber(){
+  randomNumber() {
     return Math.floor(Math.random() * 10);
   }
 }
